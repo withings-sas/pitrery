@@ -93,7 +93,7 @@ info() {
 }
 
 check_and_fix_directory() {
-    [ $# = 1 ] || return 1
+    [ $# = 2 ] || return 1
     local dir=$1
     local remove_pgdata=$2
 
