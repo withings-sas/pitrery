@@ -32,7 +32,7 @@ pgdata=/var/lib/pgsql/data
 owner=`id -un`
 archive_dir=/var/lib/pgsql/archived_xlog
 dry_run="no"
-rsync_opts="-q --whole-file" # Remote only
+rsync_opts="-q" # Remote only
 uncompress_bin="gunzip"
 compress_suffix="gz"
 
@@ -56,6 +56,7 @@ usage() {
     echo "    -n                   Dry run: show restore information only"
     echo "    -c compress_bin      Uncompression command for tar method"
     echo "    -e compress_suffix   Suffix added by the compression program"
+    echo "    -R                   Remove $PGDATA if it already exists"
     echo
     echo "Archived WAL files options:"
     echo "    -A                   Force the use of local archives"
@@ -94,6 +95,7 @@ info() {
 check_and_fix_directory() {
     [ $# = 1 ] || return 1
     local dir=$1
+    local remove_pgdata=$2
 
     # Check if directory exists
     if [ ! -d "$dir" ]; then
@@ -124,8 +126,12 @@ check_and_fix_directory() {
 	    error "could not check if $dir is empty"
 	fi
 
-	if [ $content != 0 ]; then
-	    error "$dir is not empty. Contents won't be overridden"
+	if [ -a $content != 0 ]; then
+	    if [ ! $remove_pgdata = "yes" ]; then
+	        info "allowing non empty PGDATA $dir"
+	    else
+	        error "$dir is not empty. Contents won't be overridden"
+	    fi
 	fi
     fi
     
@@ -163,7 +169,7 @@ check_and_fix_directory() {
 
 
 # Process CLI Options
-while getopts "Lu:b:l:D:x:d:O:t:nc:e:Ah:U:X:r:CSf:i:?" opt; do
+while getopts "Lu:b:l:D:x:d:O:t:nc:e:RAh:U:X:r:CSf:i:?" opt; do
     case "$opt" in
 	L) local_backup="yes";;
 	u) ssh_user=$OPTARG;;
@@ -177,6 +183,7 @@ while getopts "Lu:b:l:D:x:d:O:t:nc:e:Ah:U:X:r:CSf:i:?" opt; do
 	n) dry_run="yes";;
 	c) uncompress_bin="$OPTARG";;
 	e) compress_suffix=$OPTARG;;
+	R) remove_pgdata="yes";;
 
 	A) archive_local="yes";;
 	h) archive_host=$OPTARG;;
@@ -429,7 +436,7 @@ fi
 # Real work starts here
 
 # Check target directories
-check_and_fix_directory $pgdata
+check_and_fix_directory $pgdata $remove_pgdata
 
 if [ -n "$pgxlog" ]; then
     echo $pgxlog | grep -q '^/'
@@ -441,7 +448,7 @@ if [ -n "$pgxlog" ]; then
 	error "xlog path cannot be \$PGDATA/pg_xlog, this path is reserved. It seems you do not need -x"
     fi
 
-    check_and_fix_directory $pgxlog
+    check_and_fix_directory $pgxlog $remove_pgdata
 fi
 
 # Check the tablespaces directory and create them if possible
@@ -450,7 +457,7 @@ if [ -f "$tblspc_reloc" ]; then
 	name=`echo $l | cut -d '|' -f 1`
 	tbldir=`echo $l | cut -d '|' -f 2`
 
-	check_and_fix_directory $tbldir
+	check_and_fix_directory $tbldir $remove_pgdata
 	if [ $? != 0 ]; then
 	    warn "bad tablespace location path \"$tbldir\" for $name. Check $tblspc_list and -t switches"
 	    continue
