@@ -127,7 +127,7 @@ check_and_fix_directory() {
 	fi
 
 	if [ -a $content != 0 ]; then
-	    if [ ! $remove_pgdata = "yes" ]; then
+	    if [ $remove_pgdata = "yes" ]; then
 	        info "allowing non empty PGDATA $dir"
 	    else
 	        error "$dir is not empty. Contents won't be overridden"
