@@ -35,6 +35,7 @@ dry_run="no"
 rsync_opts="-q" # Remote only
 uncompress_bin="gunzip"
 compress_suffix="gz"
+remove_pgdata="no"
 
 usage() {
     echo "`basename $0` performs a PITR restore"
