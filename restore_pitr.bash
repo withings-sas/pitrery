@@ -32,7 +32,7 @@ pgdata=/var/lib/pgsql/data
 owner=`id -un`
 archive_dir=/var/lib/pgsql/archived_xlog
 dry_run="no"
-rsync_opts="-q" # Remote only
+rsync_opts="-q --chown=postgres:postgres" # Remote only
 uncompress_bin="gunzip"
 compress_suffix="gz"
 remove_pgdata="no"
@@ -58,6 +58,7 @@ usage() {
     echo "    -c compress_bin      Uncompression command for tar method"
     echo "    -e compress_suffix   Suffix added by the compression program"
     echo "    -R                   Remove $PGDATA if it already exists"
+    echo "    -T                   Trigger file"
     echo
     echo "Archived WAL files options:"
     echo "    -A                   Force the use of local archives"
@@ -170,7 +171,7 @@ check_and_fix_directory() {
 
 
 # Process CLI Options
-while getopts "Lu:b:l:D:x:d:O:t:nc:e:RAh:U:X:r:CSf:i:?" opt; do
+while getopts "Lu:b:l:D:x:d:O:t:nc:e:RT:Ah:U:X:r:CSf:i:?" opt; do
     case "$opt" in
 	L) local_backup="yes";;
 	u) ssh_user=$OPTARG;;
@@ -185,6 +186,7 @@ while getopts "Lu:b:l:D:x:d:O:t:nc:e:RAh:U:X:r:CSf:i:?" opt; do
 	c) uncompress_bin="$OPTARG";;
 	e) compress_suffix=$OPTARG;;
 	R) remove_pgdata="yes";;
+	T) trigger_file="$OPTARG";;
 
 	A) archive_local="yes";;
 	h) archive_host=$OPTARG;;
@@ -714,6 +716,11 @@ echo "restore_command = '$restore_command'" > $pgdata/recovery.conf
 # Put the given target date in recovery.conf
 if [ -n "$target_date" ]; then
     echo "recovery_target_time = '$target_date'" >> $pgdata/recovery.conf
+fi
+
+# Add a trigger file in recovery.conf
+if [ -n "$trigger_file" ]; then
+    echo "recovery_end_command = 'touch $trigger_file'" >> $pgdata/recovery.conf
 fi
 
 # Ensure recovery.conf as the correct owner so that PostgreSQL can
